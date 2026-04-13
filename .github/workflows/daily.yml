@@ -13,25 +13,57 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Configure Git
         run: |
           git config user.name "Apoorv Khobragade"
           git config user.email "180470498+ApoorvBytes@users.noreply.github.com"
 
-      - name: Publish one file
+      - name: Publish random files
         run: |
-          FILE=$(ls source | head -n 1)
+          COUNT=$((RANDOM % 4 + 2))
 
-          if [ -z "$FILE" ]; then
-            echo "No files left"
+          if [ ! -d "source" ]; then
+            echo "source folder does not exist"
+            exit 1
+          fi
+
+          if [ ! -d "daily" ]; then
+            mkdir -p daily
+          fi
+
+          TOTAL=$(find source -maxdepth 1 -type f | wc -l)
+
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "No files left in source"
             exit 0
           fi
 
-          cp source/$FILE daily/$FILE
-          rm source/$FILE
+          if [ "$TOTAL" -lt "$COUNT" ]; then
+            COUNT=$TOTAL
+          fi
+
+          echo "Publishing $COUNT file(s) today"
+
+          FILES=$(find source -maxdepth 1 -type f | shuf -n "$COUNT")
+
+          for FILE in $FILES; do
+            BASENAME=$(basename "$FILE")
+
+            cp "$FILE" "daily/$BASENAME"
+            rm "$FILE"
+
+            echo "Moved $BASENAME"
+          done
 
           git add .
-          git commit -m "Daily Practical: $FILE"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Daily Practical Upload ($(date +'%Y-%m-%d')) - $COUNT file(s)"
           git push
